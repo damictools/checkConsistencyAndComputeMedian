@@ -69,6 +69,51 @@ void showProgress(unsigned int currEvent, unsigned int nEvent) {
 
 }
 
+bool readListFile(const string &inListFile, vector<string> &inFileList){
+  
+  if(gVerbosity){
+    cout << bold << "Reading input list file.\n" << normal;
+  }
+  
+  ifstream in(inListFile.c_str());
+  
+  if(!in.is_open()){
+    cerr << "\nCan't open file: " << inListFile << endl << endl;
+    return false;
+  }
+  
+  while(!in.eof()){
+    char line[kMaxLine];
+    in.getline(line,kMaxLine);
+    string lineS(line);
+    
+    size_t found = lineS.find_first_not_of(" \t\v\r\n#");
+    if(found == string::npos) continue;
+    
+    unsigned int i=0;
+    istringstream eventISS(&(lineS[found]));
+    string aux;
+    const unsigned int nCol = 1;
+    while(eventISS >> aux){
+      inFileList.push_back(aux);
+      if(i>=nCol){
+        i=-1;
+        cout << aux << endl;
+        return false;
+      }
+      ++i;
+    }
+    if(i!=nCol){
+      cout << "Error: there is more than one column in the list file!\n\n";
+      return false;
+    }
+    
+  }
+  
+  in.close();
+  
+  return true;
+}
 
 void parseTime(const char *card, tm &t)
 {  
@@ -127,6 +172,10 @@ void printCopyHelp(const char *exeName, bool printFullHelp=false){
   cout << yellow;
   cout << "\nUsage:\n";
   cout << "  "   << exeName << " <input file 1> .. <input file N> -o <output filename> [-v for verbosity] \n\n";
+  cout << "or:\n";
+  cout << "  "   << exeName << " -i <input list file > -o <output filename> [-v for verbosity] \n\n";
+  cout << "or:\n";
+  cout << "  "   << exeName << " <input file 1> .. <input file N> -i <input list file > -o <output filename> [-v for verbosity] \n\n";
   cout << normal;
   cout << blue;
   cout << "For any problems or bugs contact Javier Tiffenberg <javiert@fnal.gov>\n\n";
@@ -525,8 +574,10 @@ int processCommandLineArgs(const int argc, char *argv[], int &singleHdu, vector<
   if(argc == 1) return 1;
   
   bool outFileFlag = false;
+  bool inListFileFlag = false;
+  string inListFile = "";
   int opt=0;
-  while ( (opt = getopt(argc, argv, "o:s:vVhH?")) != -1) {
+  while ( (opt = getopt(argc, argv, "i:o:s:vVhH?")) != -1) {
     switch (opt) {
     case 'o':
       if(!outFileFlag){
@@ -535,6 +586,16 @@ int processCommandLineArgs(const int argc, char *argv[], int &singleHdu, vector<
       }
       else{
         cerr << red << "\nError, can not set more than one output file!\n\n" << normal;
+        return 2;
+      }
+      break;
+    case 'i':
+      if(!inListFileFlag){
+        inListFile = optarg;
+        inListFileFlag = true;
+      }
+      else{
+        cerr << red << "\nError, can not set more than one input list file!\n\n" << normal;
         return 2;
       }
       break;
@@ -564,12 +625,27 @@ int processCommandLineArgs(const int argc, char *argv[], int &singleHdu, vector<
   }
 
   inFileList.clear();
+  
+  if(inListFileFlag){
+    cout << inListFile << endl;
+    bool allOk = readListFile(inListFile, inFileList);
+    if(!allOk){
+      cerr << red << "\nError reading input list file!\n\n" << normal;
+      return 1;
+    }
+  }
+  
   for(int i=optind; i<argc; ++i){
     inFileList.push_back(argv[i]);
     if(!fileExist(argv[i])){
       cout << red << "\nError reading input file: " << argv[i] <<"\nThe file doesn't exist!\n\n" << normal;
       return 1;
     }
+  }
+  
+  if(inFileList.size()==0){
+    cerr << red << "Error: no input file(s) provided!\n\n" << normal;
+    return 1;
   }
   
   return 0;
@@ -609,20 +685,20 @@ int main(int argc, char *argv[])
   }
   
   /* Overwrite the output file if it already exist */
-  if(fileExist(argv[2])){
+  if(fileExist(outFile.c_str())){
     cout << yellow << "\nThe output file exist. " << normal;
-    deleteFile(argv[2]);
+    deleteFile(outFile.c_str());
   }
   
   // readTimeFromHeader(argv[1]);
   
   /* Do the actual processing */
-  int status = copyStructure( inFileList,  argv[2], singleHdu);
+  int status = copyStructure( inFileList,  outFile.c_str(), singleHdu);
   if (status != 0){ 
     fits_report_error(stderr, status);
     return status;
   }
-  status = computeMedianImages( inFileList,  argv[2], singleHdu);
+  status = computeMedianImages( inFileList,  outFile.c_str(), singleHdu);
   if (status != 0){ 
     fits_report_error(stderr, status);
     return status;
