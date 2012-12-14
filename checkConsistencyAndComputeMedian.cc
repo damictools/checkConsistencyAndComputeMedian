@@ -171,11 +171,14 @@ void printCopyHelp(const char *exeName, bool printFullHelp=false){
   cout << "==========================================================================\n";
   cout << yellow;
   cout << "\nUsage:\n";
-  cout << "  "   << exeName << " <input file 1> .. <input file N> -o <output filename> [-v for verbosity] \n\n";
+  cout << "  "   << exeName << " <input file 1> .. <input file N> -o <output filename>\n\n";
   cout << "or:\n";
-  cout << "  "   << exeName << " -i <input list file > -o <output filename> [-v for verbosity] \n\n";
+  cout << "  "   << exeName << " -i <input list file > -o <output filename>\n\n";
   cout << "or:\n";
-  cout << "  "   << exeName << " <input file 1> .. <input file N> -i <input list file > -o <output filename> [-v for verbosity] \n\n";
+  cout << "  "   << exeName << " <input file 1> .. <input file N> -i <input list file > -o <output filename>\n";
+  cout << "\nOptions:\n";
+  cout << "  -v for verbosity\n";
+  cout << "  -m for MAD instead of Median\n\n";
   cout << normal;
   cout << blue;
   cout << "For any problems or bugs contact Javier Tiffenberg <javiert@fnal.gov>\n\n";
@@ -229,6 +232,47 @@ void sortAndComputeMedian( vector< vector <double> > &vLinePix, vector<double> &
   }
 
 }
+
+void sortAndComputeMAD( vector< vector <double> > &vLinePix, vector<double> &vMAD){
+  
+  const int npix = vLinePix.size();
+  vector<double> vMedian( npix );
+  
+  for(int c=0;c<npix;++c) std::sort(vLinePix[c].begin(), vLinePix[c].end());
+  int nElementsPerPix = vLinePix[0].size();
+  bool isOdd = !!(nElementsPerPix & 1);
+  
+  int m = nElementsPerPix/2;
+  if( isOdd )
+    for(int c=0;c<npix;++c) vMedian[c] = vLinePix[c][m];
+  else{
+    for(int c=0;c<npix;++c){
+      vMedian[c] = ( vLinePix[c][m-1] + vLinePix[c][m] )/2.;
+    }
+  }
+  
+  
+  vMAD.clear();
+  vMAD.resize( npix );
+  
+  
+  for(int c=0;c<npix;++c){
+    for(int i=0;i<nElementsPerPix;++i){
+      vLinePix[c][i] = fabs(vLinePix[c][i] - vMedian[c]);
+    } 
+    std::sort(vLinePix[c].begin(), vLinePix[c].end());
+  }
+
+  if( isOdd )
+    for(int c=0;c<npix;++c) vMAD[c] = vLinePix[c][m];
+  else{
+    for(int c=0;c<npix;++c){
+      vMAD[c] = ( vLinePix[c][m-1] + vLinePix[c][m] )/2.;
+    }
+  }
+
+}
+
 
 bool checkInputFilesCompatibility(const vector<string> &inFileList){
   
@@ -420,7 +464,7 @@ int copyStructure(const vector<string> inFileList, const char *outF, const int s
 
 /* Compute the median image and write it to an existing output file 
  * that has the right structure (created by copyStructure function */
-int computeMedianImages(const vector<string> inFileList, const char *outF, const int singleHdu){
+int computeMedianImages(const vector<string> inFileList, const char *outF, const int singleHdu, const string kMode){
   
   int status = 0;
   int single = 0;
@@ -520,7 +564,15 @@ int computeMedianImages(const vector<string> inFileList, const char *outF, const
       }
       
       vector<double> vMedian;
-      sortAndComputeMedian( vLinePix, vMedian );
+      
+      if(kMode == "Median")
+        sortAndComputeMedian( vLinePix, vMedian );
+      else if(kMode == "MAD")
+	sortAndComputeMAD( vLinePix, vMedian );
+      else{
+	cerr << "Invalid mode!\n";
+	return -1001;
+      }
       
       if(bytepix==4){
         for(int c=0;c<npix;++c) reinterpret_cast<float *> (outArray)[l*npixStart + c] = vMedian[c];
@@ -569,15 +621,16 @@ void checkArch(){
   }
 }
 
-int processCommandLineArgs(const int argc, char *argv[], int &singleHdu, vector<string> &inFileList, string &outFile){
+int processCommandLineArgs(const int argc, char *argv[], int &singleHdu, string &kMode, vector<string> &inFileList, string &outFile){
   
   if(argc == 1) return 1;
   
   bool outFileFlag = false;
   bool inListFileFlag = false;
   string inListFile = "";
+  kMode="Median";
   int opt=0;
-  while ( (opt = getopt(argc, argv, "i:o:s:vVhH?")) != -1) {
+  while ( (opt = getopt(argc, argv, "mi:o:s:vVhH?")) != -1) {
     switch (opt) {
     case 'o':
       if(!outFileFlag){
@@ -608,6 +661,8 @@ int processCommandLineArgs(const int argc, char *argv[], int &singleHdu, vector<
         return 2;
       }
       break;
+    case 'm':
+      kMode = "MAD";
     case 'V':
     case 'v':
       gVerbosity = 1;
@@ -663,8 +718,9 @@ int main(int argc, char *argv[])
   string outFile;
   vector<string> inFileList;
   int singleHdu=-1;
+  string kMode;
   
-  int returnCode = processCommandLineArgs( argc, argv, singleHdu, inFileList, outFile);
+  int returnCode = processCommandLineArgs( argc, argv, singleHdu, kMode, inFileList, outFile);
   if(returnCode!=0){
     if(returnCode == 1) printCopyHelp(argv[0],true);
     if(returnCode == 2) printCopyHelp(argv[0]);
@@ -672,6 +728,7 @@ int main(int argc, char *argv[])
   }
   
   if(gVerbosity){
+    cout << endl << bold << "Mode: " << kMode << normal << endl;
     cout << bold << "\nWill read the following files:\n" << normal;
     for(unsigned int i=0; i<inFileList.size();++i) cout << "\t" << inFileList[i] << endl;
     cout << bold << "\nThe output will be saved in the file:\n\t" << normal << outFile << endl;
@@ -698,7 +755,7 @@ int main(int argc, char *argv[])
     fits_report_error(stderr, status);
     return status;
   }
-  status = computeMedianImages( inFileList,  outFile.c_str(), singleHdu);
+  status = computeMedianImages( inFileList,  outFile.c_str(), singleHdu, kMode);
   if (status != 0){ 
     fits_report_error(stderr, status);
     return status;

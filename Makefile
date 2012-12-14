@@ -9,7 +9,7 @@ OBJECTS = checkConsistencyAndComputeMedian.o
 HEADERS = globalConstants.h
 
 ALL : checkConsistencyAndComputeMedian.exe
-	echo "Listo!"
+	@echo "Listo!"
 
 checkConsistencyAndComputeMedian.exe : $(OBJECTS)
 	$(CPP) $(OBJECTS) -o checkConsistencyAndComputeMedian.exe $(LIBS) $(GLIBS) $(CFLAGS)
