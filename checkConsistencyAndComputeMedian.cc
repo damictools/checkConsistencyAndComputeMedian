@@ -178,6 +178,7 @@ void printCopyHelp(const char *exeName, bool printFullHelp=false){
   cout << "  "   << exeName << " <input file 1> .. <input file N> -i <input list file > -o <output filename>\n";
   cout << "\nOptions:\n";
   cout << "  -v for verbosity\n";
+  cout << "  -s <HDU number> for processing a single HDU\n";
   cout << "  -m for MAD instead of Median\n\n";
   cout << normal;
   cout << blue;
