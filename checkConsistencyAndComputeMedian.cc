@@ -177,7 +177,7 @@ void printCopyHelp(const char *exeName, bool printFullHelp=false){
   cout << "or:\n";
   cout << "  "   << exeName << " <input file 1> .. <input file N> -i <input list file > -o <output filename>\n";
   cout << "\nOptions:\n";
-  cout << "  -v for verbosity\n";
+  cout << "  -q for quiet (no screen output)\n";
   cout << "  -s <HDU number> for processing a single HDU\n";
   cout << "  -m for MAD instead of Median\n\n";
   cout << normal;
@@ -631,7 +631,7 @@ int processCommandLineArgs(const int argc, char *argv[], int &singleHdu, string 
   string inListFile = "";
   kMode="Median";
   int opt=0;
-  while ( (opt = getopt(argc, argv, "mi:o:s:vVhH?")) != -1) {
+  while ( (opt = getopt(argc, argv, "mi:o:s:qQhH?")) != -1) {
     switch (opt) {
     case 'o':
       if(!outFileFlag){
@@ -664,9 +664,9 @@ int processCommandLineArgs(const int argc, char *argv[], int &singleHdu, string 
       break;
     case 'm':
       kMode = "MAD";
-    case 'V':
-    case 'v':
-      gVerbosity = 1;
+    case 'Q':
+    case 'q':
+      gVerbosity = 0;
       break;
     case 'h':
     case 'H':
