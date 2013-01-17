@@ -664,6 +664,7 @@ int processCommandLineArgs(const int argc, char *argv[], int &singleHdu, string 
       break;
     case 'm':
       kMode = "MAD";
+      break;
     case 'Q':
     case 'q':
       gVerbosity = 0;
