@@ -486,11 +486,11 @@ int computeMedianImages(const vector<string> inFileList, const char *outF, const
   
   /* Open the input files */
   vector<fitsfile *> infPtrs(nFiles);
-  for(int f=0; f<nFiles; ++f){
-    const char* inF = inFileList[f].c_str();
-    fits_open_file(&(infPtrs[f]), inF, READONLY, &status);
-    if (status != 0) return(status);
-  }
+//   for(int f=0; f<nFiles; ++f){
+//     const char* inF = inFileList[f].c_str();
+//     fits_open_file(&(infPtrs[f]), inF, READONLY, &status);
+//     if (status != 0) return(status);
+//   }
   
   const int kReadNLines = 1;
   const int nHDUsToProcess = (single>0)? 1 : nhdu;
@@ -551,6 +551,10 @@ int computeMedianImages(const vector<string> inFileList, const char *outF, const
       /* Loop on the input files */
       for(int r=0; r<nFiles; ++r){
         
+        const char* inF = inFileList[r].c_str();
+        fits_open_file(&(infPtrs[r]), inF, READONLY, &status);
+        if (status != 0) return(status);
+        
         double* lArray = new double[npix];
         
         /* Open the input file */
@@ -562,6 +566,7 @@ int computeMedianImages(const vector<string> inFileList, const char *outF, const
         for(int c=0;c<npix;++c) vLinePix[c].push_back(lArray[c]);
 
         delete[] lArray;
+        fits_close_file(infPtrs[r], &status);
       }
       
       vector<double> vMedian;
@@ -594,9 +599,9 @@ int computeMedianImages(const vector<string> inFileList, const char *outF, const
   }
   
   /* Close the input files */
-  for(int f=0; f<nFiles; ++f){
-    fits_close_file(infPtrs[f], &status);
-  }
+//   for(int f=0; f<nFiles; ++f){
+//     fits_close_file(infPtrs[f], &status);
+//   }
   
   /* Close the output file */
   fits_close_file(outfptr,  &status);
