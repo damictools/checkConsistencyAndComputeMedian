@@ -492,7 +492,7 @@ int computeMedianImages(const vector<string> inFileList, const char *outF, const
 //     if (status != 0) return(status);
 //   }
   
-  const int kReadNLines = 1;
+  const int kReadNLines = 2;
   const int nHDUsToProcess = (single>0)? 1 : nhdu;
   for (int n=1; n<=nhdu; ++n)  /* Main loop through each extension */
   {
@@ -542,7 +542,7 @@ int computeMedianImages(const vector<string> inFileList, const char *outF, const
       }
       
       if(npix>pixelsLeft) npix=pixelsLeft;
-      vector< vector <double> > vLinePix(npix);
+      vector< vector <double> > vLinePix(npix, vector<double>(nFiles) );
       
       long firstpix[2];
       firstpix[0] = 1;
@@ -563,7 +563,7 @@ int computeMedianImages(const vector<string> inFileList, const char *outF, const
         /* Read the images as doubles, regardless of actual datatype. */
         fits_read_pix(infPtrs[r], TDOUBLE, firstpix, npix, &nulval, lArray, &anynul, &status);
 
-        for(int c=0;c<npix;++c) vLinePix[c].push_back(lArray[c]);
+        for(int c=0;c<npix;++c) vLinePix[c][r] = lArray[c];
 
         delete[] lArray;
         fits_close_file(infPtrs[r], &status);
