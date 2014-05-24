@@ -214,21 +214,28 @@ string bitpix2TypeName(int bitpix){
 
 
 void sortAndComputeMedian( vector< vector <double> > &vLinePix, vector<double> &vMedian ){
-  
+
   int npix = vLinePix.size();
   vMedian.clear();
   vMedian.resize( npix );
   
-  for(int c=0;c<npix;++c) std::sort(vLinePix[c].begin(), vLinePix[c].end());
-  int nElementsPerPix = vLinePix[0].size();
+  const int nElementsPerPix = vLinePix[0].size();
   bool isOdd = !!(nElementsPerPix & 1);
+  const int m = nElementsPerPix/2;
   
-  int m = nElementsPerPix/2;
-  if( isOdd )
-    for(int c=0;c<npix;++c) vMedian[c] = vLinePix[c][m];
+  if( isOdd ){
+    for(int c=0;c<npix;++c){
+      std::nth_element(vLinePix[c].begin(), vLinePix[c].begin()+vLinePix[c].size()/2, vLinePix[c].end());
+      vMedian[c] = vLinePix[c][m];
+    }
+  }
   else{
     for(int c=0;c<npix;++c){
-      vMedian[c] = ( vLinePix[c][m-1] + vLinePix[c][m] )/2.;
+      std::nth_element(vLinePix[c].begin(), vLinePix[c].begin()+vLinePix[c].size()/2, vLinePix[c].end());
+      const double highMedianVal = vLinePix[c][m];
+      std::nth_element(vLinePix[c].begin(), vLinePix[c].begin()+vLinePix[c].size()/2-1, vLinePix[c].end());
+      const double lowMedianVal  = vLinePix[c][m-1];
+      vMedian[c] = (highMedianVal+lowMedianVal)/2.;
     }
   }
 
@@ -238,37 +245,34 @@ void sortAndComputeMAD( vector< vector <double> > &vLinePix, vector<double> &vMA
   
   const int npix = vLinePix.size();
   vector<double> vMedian( npix );
-  
-  for(int c=0;c<npix;++c) std::sort(vLinePix[c].begin(), vLinePix[c].end());
-  int nElementsPerPix = vLinePix[0].size();
-  bool isOdd = !!(nElementsPerPix & 1);
-  
-  int m = nElementsPerPix/2;
-  if( isOdd )
-    for(int c=0;c<npix;++c) vMedian[c] = vLinePix[c][m];
-  else{
-    for(int c=0;c<npix;++c){
-      vMedian[c] = ( vLinePix[c][m-1] + vLinePix[c][m] )/2.;
-    }
-  }
-  
+  sortAndComputeMedian( vLinePix, vMedian );
   
   vMAD.clear();
   vMAD.resize( npix );
   
+  const int nElementsPerPix = vLinePix[0].size();
+  bool isOdd = !!(nElementsPerPix & 1);
+  const int m = nElementsPerPix/2;
   
   for(int c=0;c<npix;++c){
     for(int i=0;i<nElementsPerPix;++i){
       vLinePix[c][i] = fabs(vLinePix[c][i] - vMedian[c]);
-    } 
-    std::sort(vLinePix[c].begin(), vLinePix[c].end());
+    }
   }
-
-  if( isOdd )
-    for(int c=0;c<npix;++c) vMAD[c] = vLinePix[c][m];
+  
+  if( isOdd ){
+    for(int c=0;c<npix;++c){
+      std::nth_element(vLinePix[c].begin(), vLinePix[c].begin()+vLinePix[c].size()/2, vLinePix[c].end());
+      vMAD[c] = vLinePix[c][m];
+    }
+  }
   else{
     for(int c=0;c<npix;++c){
-      vMAD[c] = ( vLinePix[c][m-1] + vLinePix[c][m] )/2.;
+      std::nth_element(vLinePix[c].begin(), vLinePix[c].begin()+vLinePix[c].size()/2, vLinePix[c].end());
+      const double highMADVal = vLinePix[c][m];
+      std::nth_element(vLinePix[c].begin(), vLinePix[c].begin()+vLinePix[c].size()/2-1, vLinePix[c].end());
+      const double lowMADVal  = vLinePix[c][m-1];
+      vMAD[c] = (highMADVal+lowMADVal)/2.;
     }
   }
 
@@ -276,6 +280,8 @@ void sortAndComputeMAD( vector< vector <double> > &vLinePix, vector<double> &vMA
 
 
 bool checkInputFilesCompatibility(const vector<string> &inFileList){
+  
+  cout << "Start: checkInputFilesCompatibility\n";
   
   const int nFiles = inFileList.size();
   fitsfile *infptr_first;   /* FITS file pointers defined in fitsio.h */
@@ -300,10 +306,10 @@ bool checkInputFilesCompatibility(const vector<string> &inFileList){
     fits_open_file(&infptr_other, inF_other, READONLY, &status);
     if (status != 0) return(status);
     fits_get_num_hdus(infptr_other, &nhdu_other, &status);
+    fits_close_file(infptr_other, &status);
     
     if(nhdu_other != nhdu_first){
       fits_close_file(infptr_first,  &status);
-      fits_close_file(infptr_other, &status);
       cerr << red << "\nInput files are not compatible. They don't have the same number of HDUs.\n\n" << normal;
       return false;
     }
@@ -365,6 +371,8 @@ bool checkInputFilesCompatibility(const vector<string> &inFileList){
   }
   
   fits_close_file(infptr_first,  &status);
+  
+  cout << "Start: checkInputFilesCompatibility\n";
   return true;
 }
 
@@ -610,8 +618,10 @@ int computeMedianImages(const vector<string> inFileList, const char *outF, const
     showProgress(1,1);
     cout << endl;
   }
-  
-  cout << green << "Median file computed.\n\n" << normal;
+  if(kMode == "Median")
+    cout << green << "Median file computed.\n\n" << normal;
+  else if(kMode == "MAD")
+    cout << green << "MAD file computed.\n\n" << normal;
   
   return(status);
 }
