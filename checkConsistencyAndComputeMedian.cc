@@ -179,7 +179,8 @@ void printCopyHelp(const char *exeName, bool printFullHelp=false){
   cout << "\nOptions:\n";
   cout << "  -q for quiet (no screen output)\n";
   cout << "  -s <HDU number> for processing a single HDU\n";
-  cout << "  -m for MAD instead of Median\n\n";
+  cout << "  -m for MAD instead of Median\n";
+  cout << "  -a for stack (add all images) instead of Median\n\n";
   cout << normal;
   cout << blue;
   cout << "For any problems or bugs contact Javier Tiffenberg <javiert@fnal.gov>\n\n";
@@ -212,6 +213,23 @@ string bitpix2TypeName(int bitpix){
   return typeName;
 }
 
+void computeStack( vector< vector <double> > &vLinePix, vector<double> &vMedian ){
+
+  int npix = vLinePix.size();
+  vMedian.clear();
+  vMedian.resize( npix );
+  
+  const int nElementsPerPix = vLinePix[0].size();
+  
+  for(int c=0;c<npix;++c){
+    double auxSum = 0;
+    for(int i=0;i<nElementsPerPix;++i){
+      auxSum += vLinePix[c][i];
+    }
+    vMedian[c] = auxSum; 
+  }
+
+}
 
 void sortAndComputeMedian( vector< vector <double> > &vLinePix, vector<double> &vMedian ){
 
@@ -582,7 +600,9 @@ int computeMedianImages(const vector<string> inFileList, const char *outF, const
       if(kMode == "Median")
         sortAndComputeMedian( vLinePix, vMedian );
       else if(kMode == "MAD")
-	sortAndComputeMAD( vLinePix, vMedian );
+        sortAndComputeMAD( vLinePix, vMedian );
+      else if(kMode == "STACK")
+        computeStack( vLinePix, vMedian );
       else{
 	cerr << "Invalid mode!\n";
 	return -1001;
@@ -646,7 +666,7 @@ int processCommandLineArgs(const int argc, char *argv[], int &singleHdu, string 
   string inListFile = "";
   kMode="Median";
   int opt=0;
-  while ( (opt = getopt(argc, argv, "mi:o:s:qQhH?")) != -1) {
+  while ( (opt = getopt(argc, argv, "ami:o:s:qQhH?")) != -1) {
     switch (opt) {
     case 'o':
       if(!outFileFlag){
@@ -679,6 +699,9 @@ int processCommandLineArgs(const int argc, char *argv[], int &singleHdu, string 
       break;
     case 'm':
       kMode = "MAD";
+      break;
+    case 'a':
+      kMode = "STACK";
       break;
     case 'Q':
     case 'q':
