@@ -1,7 +1,7 @@
 CFITSIO = $(FITSIOROOT)
 CPP = g++
 CC = gcc
-CFLAGS = -Wall -I$(CFITSIO) -O3  
+CFLAGS = -Wall -I$(CFITSIO) -O3  -fopenmp
 LIBS = -L$(CFITSIO) -lcfitsio -lm 
 GLIBS = 
 GLIBS += 

@@ -18,6 +18,12 @@
 #include <cmath>
 #include <iomanip>
 
+#ifdef _OPENMP
+    #include <omp.h>
+#else
+    #define omp_get_thread_num() 0
+#endif
+
 #include "globalConstants.h"
 
 using namespace std;
@@ -220,13 +226,17 @@ void computeStack( vector< vector <double> > &vLinePix, vector<double> &vMedian 
   vMedian.resize( npix );
   
   const int nElementsPerPix = vLinePix[0].size();
-  
-  for(int c=0;c<npix;++c){
-    double auxSum = 0;
-    for(int i=0;i<nElementsPerPix;++i){
-      auxSum += vLinePix[c][i];
+ 
+  #pragma omp parallel
+  {
+    #pragma omp for
+    for(int c=0;c<npix;++c){
+      double auxSum = 0;
+      for(int i=0;i<nElementsPerPix;++i){
+        auxSum += vLinePix[c][i];
+      }
+      vMedian[c] = auxSum; 
     }
-    vMedian[c] = auxSum; 
   }
 
 }
@@ -241,19 +251,24 @@ void sortAndComputeMedian( vector< vector <double> > &vLinePix, vector<double> &
   bool isOdd = !!(nElementsPerPix & 1);
   const int m = nElementsPerPix/2;
   
-  if( isOdd ){
-    for(int c=0;c<npix;++c){
-      std::nth_element(vLinePix[c].begin(), vLinePix[c].begin()+vLinePix[c].size()/2, vLinePix[c].end());
-      vMedian[c] = vLinePix[c][m];
+  #pragma omp parallel
+  {
+    if( isOdd ){
+      #pragma omp for
+      for(int c=0;c<npix;++c){
+        std::nth_element(vLinePix[c].begin(), vLinePix[c].begin()+vLinePix[c].size()/2, vLinePix[c].end());
+        vMedian[c] = vLinePix[c][m];
+      }
     }
-  }
-  else{
-    for(int c=0;c<npix;++c){
-      std::nth_element(vLinePix[c].begin(), vLinePix[c].begin()+vLinePix[c].size()/2, vLinePix[c].end());
-      const double highMedianVal = vLinePix[c][m];
-      std::nth_element(vLinePix[c].begin(), vLinePix[c].begin()+vLinePix[c].size()/2-1, vLinePix[c].end());
-      const double lowMedianVal  = vLinePix[c][m-1];
-      vMedian[c] = (highMedianVal+lowMedianVal)/2.;
+    else{
+      #pragma omp for
+      for(int c=0;c<npix;++c){
+        std::nth_element(vLinePix[c].begin(), vLinePix[c].begin()+vLinePix[c].size()/2, vLinePix[c].end());
+        const double highMedianVal = vLinePix[c][m];
+        std::nth_element(vLinePix[c].begin(), vLinePix[c].begin()+vLinePix[c].size()/2-1, vLinePix[c].end());
+        const double lowMedianVal  = vLinePix[c][m-1];
+        vMedian[c] = (highMedianVal+lowMedianVal)/2.;
+      }
     }
   }
 
@@ -272,25 +287,31 @@ void sortAndComputeMAD( vector< vector <double> > &vLinePix, vector<double> &vMA
   bool isOdd = !!(nElementsPerPix & 1);
   const int m = nElementsPerPix/2;
   
-  for(int c=0;c<npix;++c){
-    for(int i=0;i<nElementsPerPix;++i){
-      vLinePix[c][i] = fabs(vLinePix[c][i] - vMedian[c]);
-    }
-  }
-  
-  if( isOdd ){
+  #pragma omp parallel
+  {
+    #pragma omp for
     for(int c=0;c<npix;++c){
-      std::nth_element(vLinePix[c].begin(), vLinePix[c].begin()+vLinePix[c].size()/2, vLinePix[c].end());
-      vMAD[c] = vLinePix[c][m];
+      for(int i=0;i<nElementsPerPix;++i){
+        vLinePix[c][i] = fabs(vLinePix[c][i] - vMedian[c]);
+      }
     }
-  }
-  else{
-    for(int c=0;c<npix;++c){
-      std::nth_element(vLinePix[c].begin(), vLinePix[c].begin()+vLinePix[c].size()/2, vLinePix[c].end());
-      const double highMADVal = vLinePix[c][m];
-      std::nth_element(vLinePix[c].begin(), vLinePix[c].begin()+vLinePix[c].size()/2-1, vLinePix[c].end());
-      const double lowMADVal  = vLinePix[c][m-1];
-      vMAD[c] = (highMADVal+lowMADVal)/2.;
+    
+    if( isOdd ){
+      #pragma omp for
+      for(int c=0;c<npix;++c){
+        std::nth_element(vLinePix[c].begin(), vLinePix[c].begin()+vLinePix[c].size()/2, vLinePix[c].end());
+        vMAD[c] = vLinePix[c][m];
+      }
+    }
+    else{
+      #pragma omp for
+      for(int c=0;c<npix;++c){
+        std::nth_element(vLinePix[c].begin(), vLinePix[c].begin()+vLinePix[c].size()/2, vLinePix[c].end());
+        const double highMADVal = vLinePix[c][m];
+        std::nth_element(vLinePix[c].begin(), vLinePix[c].begin()+vLinePix[c].size()/2-1, vLinePix[c].end());
+        const double lowMADVal  = vLinePix[c][m-1];
+        vMAD[c] = (highMADVal+lowMADVal)/2.;
+      }
     }
   }
 
@@ -518,7 +539,7 @@ int computeMedianImages(const vector<string> inFileList, const char *outF, const
 //     if (status != 0) return(status);
 //   }
   
-  const int kReadNLines = 2;
+  const int kReadNLines = 100;
   const int nHDUsToProcess = (single>0)? 1 : nhdu;
   for (int n=1; n<=nhdu; ++n)  /* Main loop through each extension */
   {
