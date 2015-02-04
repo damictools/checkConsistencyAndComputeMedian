@@ -10,6 +10,8 @@ inline double sq(double x){return x*x;};
 
 const int    kMaxLine = 10000;
 
+const double kOutlierThreshold = 500;
+
 //colors
 const char cyan[] = { 0x1b, '[', '1', ';', '3', '6', 'm', 0 };
 const char magenta[] = { 0x1b, '[', '1', ';', '3', '5', 'm', 0 };

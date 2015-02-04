@@ -241,78 +241,80 @@ void computeStack( vector< vector <double> > &vLinePix, vector<double> &vMedian 
 
 }
 
-void sortAndComputeMedian( vector< vector <double> > &vLinePix, vector<double> &vMedian ){
+static bool isLargerThan(const int &x){
+	return x>1e20;
+}
+
+void sortFilterAndComputeMedian( vector< vector <double> > &vLinePix, vector<double> &vMedian ){
 
   int npix = vLinePix.size();
   vMedian.clear();
   vMedian.resize( npix );
   
-  const int nElementsPerPix = vLinePix[0].size();
-  bool isOdd = !!(nElementsPerPix & 1);
-  const int m = nElementsPerPix/2;
   
   #pragma omp parallel
   {
-    if( isOdd ){
       #pragma omp for
       for(int c=0;c<npix;++c){
-        std::nth_element(vLinePix[c].begin(), vLinePix[c].begin()+vLinePix[c].size()/2, vLinePix[c].end());
-        vMedian[c] = vLinePix[c][m];
+	  	vLinePix[c].erase(std::remove_if(vLinePix[c].begin(),vLinePix[c].end(), isLargerThan), vLinePix[c].end());
+		
+		const int nElementsPerPix = vLinePix[c].size();
+		bool isOdd = !!(nElementsPerPix & 1);
+		const int m = nElementsPerPix/2;
+	  	
+    	if( isOdd ){
+	        std::nth_element(vLinePix[c].begin(), vLinePix[c].begin()+vLinePix[c].size()/2, vLinePix[c].end());
+	        vMedian[c] = vLinePix[c][m];
+	    }
+	    else{
+	        std::nth_element(vLinePix[c].begin(), vLinePix[c].begin()+vLinePix[c].size()/2, vLinePix[c].end());
+	        const double highMedianVal = vLinePix[c][m];
+	        std::nth_element(vLinePix[c].begin(), vLinePix[c].begin()+vLinePix[c].size()/2-1, vLinePix[c].end());
+	        const double lowMedianVal  = vLinePix[c][m-1];
+	        vMedian[c] = (highMedianVal+lowMedianVal)/2.;
+	    }  
       }
-    }
-    else{
-      #pragma omp for
-      for(int c=0;c<npix;++c){
-        std::nth_element(vLinePix[c].begin(), vLinePix[c].begin()+vLinePix[c].size()/2, vLinePix[c].end());
-        const double highMedianVal = vLinePix[c][m];
-        std::nth_element(vLinePix[c].begin(), vLinePix[c].begin()+vLinePix[c].size()/2-1, vLinePix[c].end());
-        const double lowMedianVal  = vLinePix[c][m-1];
-        vMedian[c] = (highMedianVal+lowMedianVal)/2.;
-      }
-    }
-  }
-
+	}
+	
 }
 
-void sortAndComputeMAD( vector< vector <double> > &vLinePix, vector<double> &vMAD){
+void sortFilterAndComputeMAD( vector< vector <double> > &vLinePix, vector<double> &vMAD){
   
   const int npix = vLinePix.size();
   vector<double> vMedian( npix );
-  sortAndComputeMedian( vLinePix, vMedian );
+  sortFilterAndComputeMedian( vLinePix, vMedian );
   
   vMAD.clear();
   vMAD.resize( npix );
   
-  const int nElementsPerPix = vLinePix[0].size();
-  bool isOdd = !!(nElementsPerPix & 1);
-  const int m = nElementsPerPix/2;
   
   #pragma omp parallel
   {
     #pragma omp for
     for(int c=0;c<npix;++c){
+    	
+		  const int nElementsPerPix = vLinePix[c].size();
+		  bool isOdd = !!(nElementsPerPix & 1);
+		  const int m = nElementsPerPix/2;
+
       for(int i=0;i<nElementsPerPix;++i){
         vLinePix[c][i] = fabs(vLinePix[c][i] - vMedian[c]);
       }
-    }
-    
-    if( isOdd ){
-      #pragma omp for
-      for(int c=0;c<npix;++c){
+
+	    if( isOdd ){
         std::nth_element(vLinePix[c].begin(), vLinePix[c].begin()+vLinePix[c].size()/2, vLinePix[c].end());
         vMAD[c] = vLinePix[c][m];
-      }
-    }
-    else{
-      #pragma omp for
-      for(int c=0;c<npix;++c){
+	    }
+	    else{
         std::nth_element(vLinePix[c].begin(), vLinePix[c].begin()+vLinePix[c].size()/2, vLinePix[c].end());
         const double highMADVal = vLinePix[c][m];
         std::nth_element(vLinePix[c].begin(), vLinePix[c].begin()+vLinePix[c].size()/2-1, vLinePix[c].end());
         const double lowMADVal  = vLinePix[c][m-1];
         vMAD[c] = (highMADVal+lowMADVal)/2.;
-      }
+	    }
+
     }
+    
   }
 
 }
@@ -619,9 +621,9 @@ int computeMedianImages(const vector<string> inFileList, const char *outF, const
       vector<double> vMedian;
       
       if(kMode == "Median")
-        sortAndComputeMedian( vLinePix, vMedian );
+        sortFilterAndComputeMedian( vLinePix, vMedian );
       else if(kMode == "MAD")
-        sortAndComputeMAD( vLinePix, vMedian );
+        sortFilterAndComputeMAD( vLinePix, vMedian );
       else if(kMode == "STACK")
         computeStack( vLinePix, vMedian );
       else{
