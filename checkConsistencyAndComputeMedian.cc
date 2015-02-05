@@ -242,7 +242,7 @@ void computeStack( vector< vector <double> > &vLinePix, vector<double> &vMedian 
 }
 
 static bool isLargerThan(const int &x){
-	return x>1e20;
+	return x>kOutlierThreshold;
 }
 
 void sortFilterAndComputeMedian( vector< vector <double> > &vLinePix, vector<double> &vMedian ){
