@@ -186,6 +186,7 @@ void printCopyHelp(const char *exeName, bool printFullHelp=false){
   cout << "  -q for quiet (no screen output)\n";
   cout << "  -s <HDU number> for processing a single HDU\n";
   cout << "  -m for MAD instead of Median\n";
+  cout << "  -x for sigma from MAD instead of Median. sigma = 1.4826*MAD\n";
   cout << "  -a for stack (add all images) instead of Median\n\n";
   cout << normal;
   cout << blue;
@@ -278,7 +279,7 @@ void sortFilterAndComputeMedian( vector< vector <double> > &vLinePix, vector<dou
 	
 }
 
-void sortFilterAndComputeMAD( vector< vector <double> > &vLinePix, vector<double> &vMAD){
+void sortFilterAndComputeMAD( vector< vector <double> > &vLinePix, vector<double> &vMAD, const string kMode = ""){
   
   const int npix = vLinePix.size();
   vector<double> vMedian( npix );
@@ -312,10 +313,11 @@ void sortFilterAndComputeMAD( vector< vector <double> > &vLinePix, vector<double
         const double lowMADVal  = vLinePix[c][m-1];
         vMAD[c] = (highMADVal+lowMADVal)/2.;
 	    }
-
     }
     
   }
+
+  if(kMode == "SIG") for(int c=0;c<npix;++c) vMAD[c] *= 1.4826;
 
 }
 
@@ -624,6 +626,8 @@ int computeMedianImages(const vector<string> inFileList, const char *outF, const
         sortFilterAndComputeMedian( vLinePix, vMedian );
       else if(kMode == "MAD")
         sortFilterAndComputeMAD( vLinePix, vMedian );
+      else if(kMode == "SIG")
+        sortFilterAndComputeMAD( vLinePix, vMedian, kMode );
       else if(kMode == "STACK")
         computeStack( vLinePix, vMedian );
       else{
@@ -689,7 +693,7 @@ int processCommandLineArgs(const int argc, char *argv[], int &singleHdu, string 
   string inListFile = "";
   kMode="Median";
   int opt=0;
-  while ( (opt = getopt(argc, argv, "ami:o:s:qQhH?")) != -1) {
+  while ( (opt = getopt(argc, argv, "amxi:o:s:qQhH?")) != -1) {
     switch (opt) {
     case 'o':
       if(!outFileFlag){
@@ -722,6 +726,9 @@ int processCommandLineArgs(const int argc, char *argv[], int &singleHdu, string 
       break;
     case 'm':
       kMode = "MAD";
+      break;
+    case 'x':
+      kMode = "SIG";
       break;
     case 'a':
       kMode = "STACK";
